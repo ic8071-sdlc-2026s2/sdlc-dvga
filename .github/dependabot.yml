@@ -1,0 +1,29 @@
+# Vigila las dependencias de la app (pip, en app/) y las GitHub Actions.
+# El checkpoint f3.dependabot exige una entrada pip con directory que empiece en /app.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/app"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencias"
+    commit-message:
+      prefix: "pip"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencias"
+    commit-message:
+      prefix: "actions"
+
+  - package-ecosystem: "docker"
+    directory: "/app"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencias"

@@ -1,0 +1,26 @@
+rules:
+  - id: sql-text-con-formato
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Consulta SQL construida con sqlalchemy.text() y una cadena formateada
+      (% o f-string) que interpola datos de la peticion. El valor viaja sin
+      parametrizar: es inyeccion SQL (CWE-89). Use parametros vinculados
+      -- text("... :p"), {"p": valor} -- o el ORM, para cumplir el
+      requerimiento de consultas parametrizadas.
+    metadata:
+      requerimiento: "#10"
+      asvs: "1.2.4"
+      cwe: "CWE-89"
+      referencia: "https://owasp.org/www-community/attacks/SQL_Injection"
+    pattern-either:
+      - pattern: text("..." % ...)
+      - pattern: text(f"...{...}...")
+      - pattern: |
+          $Q = "..." % ...
+          ...
+          text($Q)
+      - pattern: |
+          $Q = f"...{...}..."
+          ...
+          text($Q)
