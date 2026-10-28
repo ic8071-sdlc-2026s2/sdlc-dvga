@@ -1,0 +1,72 @@
+# Fase 4: levanta la app en el runner, la ataca con ZAP en modo GraphQL y corre
+# las pruebas escritas desde los casos de abuso. Solo reporta: las pruebas en
+# rojo son lo esperado hasta corregir. Endurecido como los demas workflows.
+name: Fase 4 · DAST y pruebas de abuso
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Construir la imagen de la app
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: app
+          load: true
+          tags: lab-app:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Levantar la app
+        run: bash lab/app.sh iniciar lab-app:ci
+
+      - name: Escaneo dinámico con ZAP (modo GraphQL)
+        run: |
+          mkdir -p reportes && chmod 777 reportes
+          source lab/app.env
+          echo "Objetivo: http://localhost:$APP_PUERTO$ZAP_GRAPHQL (modo $ZAP_MODO)"
+          # ZAP importa el esquema GraphQL por introspeccion desde el endpoint y
+          # hace analisis activo. -T limita el tiempo total: los resolvers del
+          # sistema de DVGA (systemUpdate simula carga) hacen lento el escaneo
+          # activo. -I evita que las alertas detengan el job.
+          docker run --rm --network host -v "$PWD/reportes:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-api-scan.py -t "http://localhost:$APP_PUERTO$ZAP_GRAPHQL" -f graphql \
+            -T 5 -r zap.html -J zap.json -I
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Pruebas de abuso (rojo esperado hasta corregir)
+        continue-on-error: true
+        run: |
+          pip install -r seguridad/fase-4/pruebas/requirements.txt
+          source lab/app.env
+          APP_URL="http://localhost:$APP_PUERTO" pytest seguridad/fase-4/pruebas -v \
+            --junitxml=reportes/pytest.xml
+
+      - name: Bitácora de la app
+        if: always()
+        run: bash lab/app.sh logs > reportes/app.log 2>&1 || true
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: reporte-dast
+          path: reportes/
