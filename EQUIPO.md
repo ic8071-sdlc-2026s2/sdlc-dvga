@@ -2,12 +2,16 @@
 
 Una fila por integrante. El usuario de GitHub va sin espacios; el checkpoint de la fase 0 lo lee de esta tabla. Los roles rotan por sesión: nadie repite rol. En el equipo de 5, la quinta persona de cada sesión toma Relatoría.
 
+> Equipo de ejemplo del demo del profesor (DVGA). Los nombres y los usuarios son
+> ficticios; reemplácelos por los reales en un repositorio de equipo.
+
 | Nombre | Usuario de GitHub | Sesión 2 (fases 1 y 2) | Sesión 3 (fase 3) | Sesión 4 (fase 4) | Sesión 5 (fase 5) |
 |:---|:---|:---|:---|:---|:---|
-| Nombre Apellido | usuario | Arquitectura | AppSec | DevSecOps | Equipo rojo |
-| Nombre Apellido | usuario | AppSec | DevSecOps | Equipo rojo | Arquitectura |
-| Nombre Apellido | usuario | DevSecOps | Equipo rojo | Arquitectura | AppSec |
-| Nombre Apellido | usuario | Equipo rojo | Arquitectura | AppSec | DevSecOps |
+| María Rojas | mrojas-demo | Arquitectura | AppSec | DevSecOps | Equipo rojo |
+| Luis Vargas | lvargas-demo | AppSec | DevSecOps | Equipo rojo | Arquitectura |
+| Ana Mora | amora-demo | DevSecOps | Equipo rojo | Arquitectura | AppSec |
+| Carlos Jiménez | cjimenez-demo | Equipo rojo | Arquitectura | AppSec | DevSecOps |
+| Sofía Castro | scastro-demo | Relatoría | Relatoría | Relatoría | Relatoría |
 
 ## Roles
 
