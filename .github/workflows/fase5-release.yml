@@ -1,0 +1,137 @@
+# Fase 5: release firmado con gate. Aqui el pipeline deja de solo reportar.
+# Se dispara al empujar una etiqueta v* (git tag v1.0.0 && git push origin v1.0.0).
+name: Fase 5 · Release firmado
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write       # crear el GitHub Release
+      packages: write       # publicar la imagen en ghcr.io
+      id-token: write       # firma sin llaves con Sigstore
+      attestations: write   # attestations de procedencia y de SBOM
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # 1. Iniciar sesión en ghcr.io.
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2. Nombre y etiquetas de la imagen (minúsculas las resuelve metadata-action).
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: type=semver,pattern={{version}}
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # 3. Construir y publicar la imagen desde app/.
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: app
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - id: imagen
+        run: echo "ref=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      # 4. Gate de vulnerabilidades. La base slim deja solo CVE del SO sin parche
+      #    (ignore-unfixed) y 28 de dependencias de Python que no se pueden subir
+      #    sin romper la paridad con DVGA 2.2.0: van en la línea base con statement.
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.imagen.outputs.ref }}@${{ steps.build.outputs.digest }}
+          version: v0.76.1
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          trivyignores: seguridad/fase-5/.trivyignore.yaml
+
+      # 5. SBOM CycloneDX (reusa el Trivy ya instalado).
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.imagen.outputs.ref }}@${{ steps.build.outputs.digest }}
+          scan-type: image
+          format: cyclonedx
+          output: sbom.cdx.json
+          skip-setup-trivy: true
+
+      # 6. Gate de correcciones: levantar la imagen publicada y correr pytest -m corregida.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Gate de correcciones (pytest -m corregida contra la imagen)
+        run: |
+          pip install -r seguridad/fase-4/pruebas/requirements.txt
+          source lab/app.env
+          bash lab/app.sh iniciar "${{ steps.imagen.outputs.ref }}@${{ steps.build.outputs.digest }}"
+          APP_URL="http://localhost:$APP_PUERTO" pytest seguridad/fase-4/pruebas -m corregida -v
+
+      # 7. Firma por digest con cosign (keyless).
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.4
+
+      - name: Firmar la imagen por digest
+        run: cosign sign --yes "${{ steps.imagen.outputs.ref }}@${{ steps.build.outputs.digest }}"
+
+      # 8. Attestations de procedencia y de SBOM, empujadas al registro.
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ steps.imagen.outputs.ref }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: ${{ steps.imagen.outputs.ref }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: sbom.cdx.json
+          push-to-registry: true
+
+      # 9. Verificar lo que se publicó.
+      - name: Verificar attestation y firma
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          IMG="${{ steps.imagen.outputs.ref }}"
+          DIG="${{ steps.build.outputs.digest }}"
+          gh attestation verify "oci://$IMG@$DIG" -R "${{ github.repository }}"
+          cosign verify "$IMG@$DIG" \
+            --certificate-identity-regexp "^https://github\.com/${{ github.repository }}/\.github/workflows/fase5-release\.yml@refs/tags/v" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+      # 10. GitHub Release con el SBOM y la línea «Imagen: ...@sha256:...».
+      - name: Crear el GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          IMG="${{ steps.imagen.outputs.ref }}"
+          DIG="${{ steps.build.outputs.digest }}"
+          notas="$(mktemp)"
+          {
+            echo "Release firmado de DVGA (demo del laboratorio SDLC)."
+            echo
+            echo "Imagen: $IMG@$DIG"
+          } > "$notas"
+          gh release create "${GITHUB_REF_NAME}" sbom.cdx.json \
+            --title "DVGA ${GITHUB_REF_NAME}" --notes-file "$notas"

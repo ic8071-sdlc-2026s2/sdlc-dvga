@@ -1,4 +1,4 @@
-FROM python:3.10
+FROM python:3.10-slim
 
 LABEL description="Damn Vulnerable GraphQL Application"
 LABEL github="https://github.com/dolevf/Damn-Vulnerable-GraphQL-Application"
@@ -7,7 +7,7 @@ LABEL maintainers="Dolev Farhi & Nick Aleks"
 ARG TARGET_FOLDER=/opt/dvga
 WORKDIR $TARGET_FOLDER/
 
-RUN apt install curl git
+RUN apt-get update && apt-get install -y --no-install-recommends curl git && rm -rf /var/lib/apt/lists/*
 
 RUN useradd dvga -m 
 RUN chown dvga. $TARGET_FOLDER/

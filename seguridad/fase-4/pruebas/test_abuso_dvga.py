@@ -43,6 +43,7 @@ def test_login_sin_bloqueo(app_url, sesion):
 
 
 @pytest.mark.caso_abuso(2)
+@pytest.mark.corregida
 def test_sqli_en_filtro_de_pastes(app_url, sesion):
     """Dado el campo filter de la consulta pastes
     Cuando se inyecta una condicion SQL siempre verdadera
@@ -55,6 +56,7 @@ def test_sqli_en_filtro_de_pastes(app_url, sesion):
 
 
 @pytest.mark.caso_abuso(3)
+@pytest.mark.corregida
 def test_inyeccion_de_comandos(app_url, sesion):
     """Dado el resolver systemDebug, que pasa su argumento a la shell
     Cuando el argumento incluye un comando encadenado (; id)
@@ -114,6 +116,7 @@ def test_lotes_de_consultas_sin_limite(app_url, sesion):
 
 
 @pytest.mark.caso_abuso(8)
+@pytest.mark.corregida
 def test_cabeceras_de_seguridad(app_url, sesion):
     """Dado cualquier respuesta de la app
     Cuando se inspeccionan sus cabeceras

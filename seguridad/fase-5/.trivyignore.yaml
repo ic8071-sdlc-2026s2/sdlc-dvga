@@ -1,8 +1,98 @@
-# Línea base del gate de la fase 5.
-# El gate bloquea toda vulnerabilidad alta o crítica que no esté en esta lista.
-# Cada excepción necesita statement: por qué se acepta y qué issue de hallazgo la respalda.
-# El checkpoint f5.lineabase cuenta las excepciones sin statement.
+# Linea base del gate de la fase 5 (Trivy). Cada excepcion lleva statement con su
+# justificacion y expired_at para que caduque y se vuelva a revisar.
+#
+# Contexto medido en esta Mac el 2026-10-28 con aquasec/trivy:0.76.1:
+#   - Imagen con la base python:3.10 completa: 551 HIGH/CRITICAL del sistema operativo
+#     (534 HIGH, 17 CRITICAL) + ~32 de dependencias de Python.
+#   - Imagen con la base python:3.10-slim (correccion del hallazgo #21): 53 HIGH del SO,
+#     TODAS sin parche publicado, mas 28 de dependencias de Python con parche.
+# Por eso el gate usa ignore-unfixed: true (los 53 del SO no tienen version que instalar;
+# se justifica en la presentacion) y esta linea base cubre las 28 de dependencias, que no
+# se pueden subir sin romper la paridad con DVGA 2.2.0 (graphene 2.x / flask-graphql).
+# Las dependencias se corrigen de verdad cuando el proyecto migre a graphene 3; mientras
+# tanto se aceptan con justificacion. Ver hallazgos #18 y #20.
 vulnerabilities:
-#  - id: CVE-2024-00000
-#    statement: "Solo se usa en pruebas y no se ejecuta en producción. Hallazgo #23."
-#    expired_at: 2026-12-31
+  - id: CVE-2023-37920
+    statement: "certifi 2022.12.7 (HIGH): Transitiva pinneada por el stack de DVGA 2.2.0; subirla no es trivial sin romper requests/urllib3 (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: GHSA-6q48-6c7w-9gw2
+    statement: "certifi 2022.12.7 (CRITICAL): Transitiva pinneada por el stack de DVGA 2.2.0; subirla no es trivial sin romper requests/urllib3 (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2023-30861
+    statement: "Flask 2.2.2 (HIGH): Subir Flask rompe la paridad con graphene 2.x y flask-graphql de DVGA 2.2.0 (hallazgo #20). El vector de la cookie de sesion no aplica como en una app nueva."
+    expired_at: 2027-06-30
+  - id: CVE-2023-41419
+    statement: "gevent 22.10.2 (CRITICAL): Servidor WSGI del proyecto original; subir mayor rompe flask-sockets/graphql-ws de DVGA (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2025-43859
+    statement: "h11 0.14.0 (CRITICAL): Transitiva del stack de sockets; se mantiene por paridad con DVGA 2.2.0 (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2026-23949
+    statement: "jaraco.context 5.3.0 (HIGH): Paquete del entorno de empaquetado (setuptools), no del runtime de la app (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2026-114613
+    statement: "msgpack 1.1.2 (HIGH): Transitiva de socketio del entorno; no la usa la logica de la app directamente (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: GHSA-6v7p-g79w-8964
+    statement: "msgpack 1.1.2 (HIGH): Transitiva de socketio del entorno; no la usa la logica de la app directamente (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2022-29217
+    statement: "PyJWT 2.0.1 (HIGH): flask-graphql-auth fija PyJWT 2.0.x; subirlo rompe la autenticacion de DVGA 2.2.0. La debilidad de forja de JWT es un reto del propio DVGA (hallazgo #18); se mantiene la version por paridad."
+    expired_at: 2027-06-30
+  - id: CVE-2026-102267
+    statement: "PyJWT 2.0.1 (HIGH): flask-graphql-auth fija PyJWT 2.0.x; subirlo rompe la autenticacion de DVGA 2.2.0. La debilidad de forja de JWT es un reto del propio DVGA (hallazgo #18); se mantiene la version por paridad."
+    expired_at: 2027-06-30
+  - id: CVE-2026-102268
+    statement: "PyJWT 2.0.1 (CRITICAL): flask-graphql-auth fija PyJWT 2.0.x; subirlo rompe la autenticacion de DVGA 2.2.0. La debilidad de forja de JWT es un reto del propio DVGA (hallazgo #18); se mantiene la version por paridad."
+    expired_at: 2027-06-30
+  - id: CVE-2026-32597
+    statement: "PyJWT 2.0.1 (HIGH): flask-graphql-auth fija PyJWT 2.0.x; subirlo rompe la autenticacion de DVGA 2.2.0. La debilidad de forja de JWT es un reto del propio DVGA (hallazgo #18); se mantiene la version por paridad."
+    expired_at: 2027-06-30
+  - id: CVE-2026-48526
+    statement: "PyJWT 2.0.1 (HIGH): flask-graphql-auth fija PyJWT 2.0.x; subirlo rompe la autenticacion de DVGA 2.2.0. La debilidad de forja de JWT es un reto del propio DVGA (hallazgo #18); se mantiene la version por paridad."
+    expired_at: 2027-06-30
+  - id: GHSA-pxh4-856f-4h89
+    statement: "PyJWT 2.0.1 (HIGH): flask-graphql-auth fija PyJWT 2.0.x; subirlo rompe la autenticacion de DVGA 2.2.0. La debilidad de forja de JWT es un reto del propio DVGA (hallazgo #18); se mantiene la version por paridad."
+    expired_at: 2027-06-30
+  - id: CVE-2026-48802
+    statement: "python-engineio 4.3.4 (HIGH): Dependencia de Flask-SocketIO pinneada; subirla rompe la version de socketio de DVGA (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2026-48809
+    statement: "python-engineio 4.3.4 (HIGH): Dependencia de Flask-SocketIO pinneada; subirla rompe la version de socketio de DVGA (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2026-48804
+    statement: "python-socketio 5.7.2 (HIGH): Pinneada junto con engineio por Flask-SocketIO 5.3.x de DVGA (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2025-47273
+    statement: "setuptools 70.3.0 (HIGH): Herramienta de build del entorno, no se ejecuta en tiempo de peticion (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2023-43804
+    statement: "urllib3 1.26.13 (HIGH): Transitiva de requests pinneada en 1.26.x; subir a 2.x rompe la cadena del proyecto original (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2025-66418
+    statement: "urllib3 1.26.13 (HIGH): Transitiva de requests pinneada en 1.26.x; subir a 2.x rompe la cadena del proyecto original (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2025-66471
+    statement: "urllib3 1.26.13 (HIGH): Transitiva de requests pinneada en 1.26.x; subir a 2.x rompe la cadena del proyecto original (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2026-21441
+    statement: "urllib3 1.26.13 (HIGH): Transitiva de requests pinneada en 1.26.x; subir a 2.x rompe la cadena del proyecto original (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2026-44431
+    statement: "urllib3 1.26.13 (HIGH): Transitiva de requests pinneada en 1.26.x; subir a 2.x rompe la cadena del proyecto original (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2026-97687
+    statement: "urllib3 1.26.13 (HIGH): Transitiva de requests pinneada en 1.26.x; subir a 2.x rompe la cadena del proyecto original (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2026-97689
+    statement: "urllib3 1.26.13 (HIGH): Transitiva de requests pinneada en 1.26.x; subir a 2.x rompe la cadena del proyecto original (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2023-25577
+    statement: "Werkzeug 2.2.2 (HIGH): La app corre con debug=True a proposito para el reto; el endurecimiento se trata como configuracion, no como actualizacion de dependencia (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2024-34069
+    statement: "Werkzeug 2.2.2 (HIGH): La app corre con debug=True a proposito para el reto; el endurecimiento se trata como configuracion, no como actualizacion de dependencia (hallazgo #20)."
+    expired_at: 2027-06-30
+  - id: CVE-2026-24049
+    statement: "wheel 0.45.1 (HIGH): Herramienta de build del entorno, no se ejecuta en tiempo de peticion (hallazgo #20)."
+    expired_at: 2027-06-30

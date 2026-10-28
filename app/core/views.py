@@ -317,7 +317,10 @@ class Query(graphene.ObjectType):
     result = query.filter_by(public=public, burn=False)
 
     if filter:
-      result = result.filter(text("title = '%s' or content = '%s'" % (filter, filter)))
+      # Correccion CWE-89: se vincula el valor como parametro en vez de interpolarlo
+      # en la cadena SQL. Elimina la inyeccion aun con la app en modo vulnerable.
+      result = result.filter(
+        text("title = :filtro or content = :filtro")).params(filtro=filter)
 
     return result.order_by(Paste.id.desc()).limit(limit)
 
@@ -348,8 +351,13 @@ class Query(graphene.ObjectType):
 
   def resolve_system_debug(self, info, arg=None):
     Audit.create_audit_entry(info)
+    # Correccion CWE-78: el argumento se pasaba sin validar a la shell. Ahora
+    # solo se acepta un PID numerico; cualquier otra cosa se rechaza, de modo
+    # que no se puede encadenar un comando (; id) aunque la app siga vulnerable.
     if arg:
-      output = helpers.run_cmd('ps {}'.format(arg))
+      if not str(arg).strip().isdigit():
+        return 'Invalid argument: only a numeric PID is allowed'
+      output = helpers.run_cmd('ps {}'.format(int(str(arg).strip())))
     else:
       output = helpers.run_cmd('ps')
     return output
@@ -392,7 +400,17 @@ class Query(graphene.ObjectType):
 @app.route('/')
 def index():
   resp = make_response(render_template('index.html'))
-  resp.set_cookie("env", "graphiql:disable")
+  # Correccion CWE-1004: la cookie de configuracion se marca HttpOnly y SameSite.
+  resp.set_cookie("env", "graphiql:disable", httponly=True, samesite="Lax")
+  return resp
+
+
+@app.after_request
+def set_security_headers(resp):
+  # Correccion CWE-1004: cabeceras de seguridad ausentes en todas las respuestas.
+  resp.headers["X-Content-Type-Options"] = "nosniff"
+  resp.headers["X-Frame-Options"] = "DENY"
+  resp.headers["Referrer-Policy"] = "no-referrer"
   return resp
 
 @app.route('/about')
